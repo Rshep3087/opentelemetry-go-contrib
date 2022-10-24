@@ -15,6 +15,8 @@
 package otelmux // import "go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
 import (
+	"net/http"
+
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -23,6 +25,7 @@ import (
 type config struct {
 	TracerProvider oteltrace.TracerProvider
 	Propagators    propagation.TextMapPropagator
+	Filters        []Filter
 }
 
 // Option specifies instrumentation configuration options.
@@ -54,5 +57,13 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 		if provider != nil {
 			cfg.TracerProvider = provider
 		}
+	})
+}
+
+type Filter func(*http.Request) bool
+
+func WithFilter(f Filter) Option {
+	return optionFunc(func(c *config) {
+		c.Filters = append(c.Filters, f)
 	})
 }

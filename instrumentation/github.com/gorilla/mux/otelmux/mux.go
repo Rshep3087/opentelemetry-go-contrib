@@ -56,6 +56,7 @@ func Middleware(service string, opts ...Option) mux.MiddlewareFunc {
 			service:     service,
 			tracer:      tracer,
 			propagators: cfg.Propagators,
+			filters:     cfg.Filters,
 			handler:     handler,
 		}
 	}
@@ -65,6 +66,7 @@ type traceware struct {
 	service     string
 	tracer      oteltrace.Tracer
 	propagators propagation.TextMapPropagator
+	filters     []Filter
 	handler     http.Handler
 }
 
@@ -114,6 +116,13 @@ func putRRW(rrw *recordingResponseWriter) {
 // ServeHTTP implements the http.Handler interface. It does the actual
 // tracing of the request.
 func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	for _, f := range tw.filters {
+		if !f(r) {
+			// Simply pass through to the handler if a filter rejects the request
+			tw.handler.ServeHTTP(w, r)
+			return
+		}
+	}
 	ctx := tw.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
 	spanName := ""
 	route := mux.CurrentRoute(r)
